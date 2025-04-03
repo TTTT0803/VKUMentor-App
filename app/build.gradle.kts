@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
-    kotlin("kapt")
 }
 
 android {
@@ -42,7 +41,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -60,29 +58,30 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Jetpack Compose
-    implementation ("androidx.activity:activity-compose:1.8.2")
-    implementation ("androidx.compose.ui:ui:1.6.4")
-    implementation ("androidx.compose.material3:material3:1.2.1")
-    implementation( "androidx.compose.runtime:runtime-livedata:1.6.4")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.compose.ui:ui:1.6.4")
+    implementation("androidx.compose.material3:material3:1.2.1")
+    implementation("androidx.compose.runtime:runtime-livedata:1.6.4")
 
     // ViewModel
-    implementation( "androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
-    // Room
-    implementation ("androidx.room:room-runtime:2.6.1")
-    kapt ("androidx.room:room-compiler:2.6.1")
-    implementation ("androidx.room:room-ktx:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
 
     // Coroutines
-    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // Hilt
-    implementation ("com.google.dagger:hilt-android:2.48")
-    kapt ("com.google.dagger:hilt-compiler:2.48")
+    implementation("com.google.dagger:hilt-android:2.48")
 
     // Coil for image loading
-    implementation ("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
 
     // Navigation Compose
-    implementation ("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Firebase BOM và dependencies
+    implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
 }
