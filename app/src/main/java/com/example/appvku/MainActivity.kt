@@ -3,45 +3,26 @@ package com.example.appvku
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.appvku.ui.theme.AppVKUTheme
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.appvku.ui.screen.SplashScreen
+import com.example.appvku.ui.screen.LoginScreen
+import com.example.appvku.ui.screen.SignUpScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            AppVKUTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+            val navController = rememberNavController()
+
+            NavHost(navController = navController, startDestination = "splash_screen") {
+                composable("splash_screen") { SplashScreen(navController) }
+                composable("login") { LoginScreen(navController) } // ✅ Thêm LoginScreen vào NavHost
+                composable("signup") { SignUpScreen(navController) } // ✅ Thêm LoginScreen vào NavHost
+
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello yes sir",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    AppVKUTheme {
-        Greeting("Android")
     }
 }
