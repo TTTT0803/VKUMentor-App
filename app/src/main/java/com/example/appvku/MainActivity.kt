@@ -18,6 +18,7 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             NavHost(navController = navController, startDestination = "splash_screen") {
+                //nagivator
                 composable("splash_screen") { SplashScreen(navController) }
                 composable("login") { LoginScreen(navController) } // ✅ Thêm LoginScreen vào NavHost
                 composable("signup") { SignUpScreen(navController) } // ✅ Thêm LoginScreen vào NavHost
