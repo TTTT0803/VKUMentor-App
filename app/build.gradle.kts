@@ -88,5 +88,16 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation ("com.google.firebase:firebase-firestore-ktx:24.10.3")
+
+    // Firebase Firestore
+    implementation("com.google.firebase:firebase-firestore:24.10.0")
+    // Firebase Authentication
+    implementation("com.google.firebase:firebase-auth:23.0.0")
+    // Coroutines để sử dụng await()
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
+    // Compose dependencies (đã có trong dự án của bạn)
+    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.compose.material3:material3:1.2.1")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
 }
