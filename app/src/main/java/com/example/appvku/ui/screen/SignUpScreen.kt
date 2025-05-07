@@ -19,15 +19,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.appvku.R
+import com.example.appvku.model.User
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SignUpScreen(navController: NavHostController) { // ✅ Đúng tham số
+fun SignUpScreen(navController: NavHostController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
 
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xFFE5F0FF)),
@@ -42,16 +45,16 @@ fun SignUpScreen(navController: NavHostController) { // ✅ Đúng tham số
                 painter = painterResource(id = R.drawable.login),
                 contentDescription = "VKUMentor Logo",
                 modifier = Modifier
-                    .size(150.dp) // Kích thước ảnh gốc
-                    .scale(1.80f)  // Phóng to 1.8 lần
-                    .offset(y = (-50).dp) // Đẩy ảnh lên trên 50dp
+                    .size(150.dp)
+                    .scale(1.80f)
+                    .offset(y = (-50).dp)
             )
             Text(
                 text = "Reach Your Goal!",
                 fontSize = 28.sp,
                 color = Color.Black,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(y = (-20).dp) // Đẩy chữ lên gần ảnh hơn
+                modifier = Modifier.offset(y = (-20).dp)
             )
 
             Text(
@@ -101,23 +104,51 @@ fun SignUpScreen(navController: NavHostController) { // ✅ Đúng tham số
                         auth.createUserWithEmailAndPassword(email, password)
                             .addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
-                                    Toast.makeText(context, "Sign up successful!", Toast.LENGTH_SHORT).show()
-                                    println("✅ Đăng ký thành công -> Điều hướng tới login")
-                                    navController.navigate("login")
+                                    val user = auth.currentUser
+                                    // Tìm role Mentee trong Firestore
+                                    db.collection("roles")
+                                        .whereEqualTo("roleName", "Mentee")
+                                        .get()
+                                        .addOnSuccessListener { documents ->
+                                            if (!documents.isEmpty) {
+                                                val menteeRoleId = documents.documents[0].id
+                                                // Lưu thông tin người dùng vào Firestore với role Mentee
+                                                val newUser = User(
+                                                    uid = user?.uid ?: "",
+                                                    username = email.split("@")[0],
+                                                    password = "hashed_password", // Nên mã hóa mật khẩu trong thực tế
+                                                    email = email,
+                                                    idRole = menteeRoleId
+                                                )
+                                                db.collection("users")
+                                                    .document(user?.uid ?: "")
+                                                    .set(newUser)
+                                                    .addOnSuccessListener {
+                                                        Toast.makeText(context, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
+                                                        navController.navigate("login")
+                                                    }
+                                                    .addOnFailureListener { e ->
+                                                        Toast.makeText(context, "Lỗi khi lưu thông tin người dùng: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    }
+                                            } else {
+                                                Toast.makeText(context, "Không tìm thấy vai trò Mentee", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                        .addOnFailureListener { e ->
+                                            Toast.makeText(context, "Lỗi khi tìm vai trò Mentee: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
                                 } else {
-                                    println("❌ Đăng ký thất bại: ${task.exception?.message}")
                                     Toast.makeText(
                                         context,
-                                        "Sign up failed: ${task.exception?.message}",
+                                        "Đăng ký thất bại: ${task.exception?.message}",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
                             }
                     } else {
-                        Toast.makeText(context, "Enter valid email & password (min 6 chars)", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Vui lòng nhập email hợp lệ và mật khẩu (tối thiểu 6 ký tự)", Toast.LENGTH_SHORT).show()
                     }
-                }
-                ,
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
@@ -128,9 +159,8 @@ fun SignUpScreen(navController: NavHostController) { // ✅ Đúng tham số
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 🔹 Nút chuyển đến trang Đăng ký
             TextButton(onClick = { navController.navigate("login") }) {
-                Text("Alredy have an account? Login", color = Color.Black)
+                Text("Đã có tài khoản? Đăng nhập", color = Color.Black)
             }
         }
     }

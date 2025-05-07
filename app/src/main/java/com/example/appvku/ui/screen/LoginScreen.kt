@@ -120,7 +120,7 @@ fun LoginScreen(navController: NavHostController) { // ✅ Đúng tham số
             Spacer(modifier = Modifier.height(8.dp))
 
             // 🔹 Nút chuyển đến trang Đăng ký
-            TextButton(onClick = { navController.navigate("signup") }) {
+            TextButton(onClick = { navController.navigate("signup_screen") }) {
                 Text("Don't have an account? Sign up", color = Color.Black)
             }
         }
