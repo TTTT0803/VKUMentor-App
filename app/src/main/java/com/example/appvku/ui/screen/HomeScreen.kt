@@ -44,12 +44,14 @@ fun HomeScreen(navController: NavHostController) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     var visibleMentors by remember { mutableStateOf(listOf<MentorInfo>()) }
+    var originalMentors by remember { mutableStateOf(listOf<MentorInfo>()) } // Lưu danh sách gốc
     var lastDocument by remember { mutableStateOf<com.google.firebase.firestore.DocumentSnapshot?>(null) }
     var page by remember { mutableStateOf(0) }
     val mentorsPerPage = 9
     val additionalMentors = 6
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val gridState = rememberLazyGridState()
     var selectedItem by remember { mutableStateOf("home") }
@@ -74,6 +76,7 @@ fun HomeScreen(navController: NavHostController) {
                     }
                     Log.d("HomeScreen", "Tải được ${fetchedMentors.size} mentor: $fetchedMentors")
                     visibleMentors = fetchedMentors
+                    originalMentors = fetchedMentors // Lưu danh sách gốc
                     lastDocument = documents.documents.lastOrNull()
                 }
                 isLoading = false
@@ -102,6 +105,7 @@ fun HomeScreen(navController: NavHostController) {
                             mentor.copy(id = doc.id)
                         }
                         visibleMentors = visibleMentors + newMentors
+                        originalMentors = originalMentors + newMentors // Cập nhật danh sách gốc
                         lastDocument = documents.documents.lastOrNull()
                     } else {
                         lastDocument = null
@@ -112,6 +116,18 @@ fun HomeScreen(navController: NavHostController) {
                     Log.e("HomeScreen", "Lỗi khi tải thêm mentor: ${exception.message}")
                     isLoading = false
                 }
+        }
+    }
+
+    // Hàm tìm kiếm mentor theo tên
+    fun searchMentors(query: String) {
+        searchQuery = query
+        if (query.isBlank()) {
+            visibleMentors = originalMentors // Khôi phục danh sách gốc nếu từ khóa rỗng
+        } else {
+            visibleMentors = originalMentors.filter {
+                it.name.lowercase().contains(query.lowercase())
+            }
         }
     }
 
@@ -154,13 +170,40 @@ fun HomeScreen(navController: NavHostController) {
                             .fillMaxSize()
                             .padding(horizontal = 16.dp)
                     ) {
-                        Text(
-                            text = "Mentor nổi bật",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Mentor nổi bật",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { newQuery ->
+                                    searchQuery = newQuery
+                                    searchMentors(newQuery)
+                                },
+                                label = { Text("Tìm theo tên") },
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(48.dp),
+                                singleLine = true,
+                                colors = TextFieldDefaults.textFieldColors(
+                                    containerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Black,
+                                    unfocusedIndicatorColor = Color.Black,
+                                    disabledIndicatorColor = Color.Transparent,
+                                    focusedLabelColor = Color.Black,
+                                    unfocusedLabelColor = Color.Black
+                                )
+                            )
+                        }
 
                         if (isLoading) {
                             Box(

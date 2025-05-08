@@ -30,6 +30,7 @@ import com.example.appvku.ui.screen.SignUpScreen
 import com.example.appvku.ui.screen.SplashScreen
 import com.example.appvku.ui.theme.AppVKUTheme
 import com.cloudinary.android.MediaManager
+import com.example.appvku.ui.screen.UpdateProfileScreen
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -125,6 +126,7 @@ fun AppNavigation() {
         composable("signup_screen") { SignUpScreen(navController) }
         composable("collaboration") { CooperationScreen(navController) }
         composable("about_us") { AboutUsScreen(navController) }
+        composable("update_profile") { UpdateProfileScreen(navController) }
         composable(
             "edit_mentor/{mentorId}/{name}/{expertise}/{organization}/{achievements}/{referralSource}/{image}",
             arguments = listOf(

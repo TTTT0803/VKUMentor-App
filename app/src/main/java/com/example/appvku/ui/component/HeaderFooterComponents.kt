@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -103,9 +104,6 @@ fun AppTopBar(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            IconButton(onClick = { navController.navigate("search_mentor") }) {
-                Icon(Icons.Default.Search, contentDescription = "Tìm kiếm Mentor")
-            }
             IconButton(onClick = { navController.navigate("community") }) {
                 Image(
                     painter = painterResource(id = R.drawable.group),
@@ -174,6 +172,20 @@ fun AppBottomBar(
                         }
                         launchSingleTop = true
                     }
+                }
+            )
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Profile",
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                label = { Text("Profile", fontSize = 12.sp) },
+                selected = selectedItem == "profile",
+                onClick = {
+                    navController.navigate("update_profile")
                 }
             )
             NavigationBarItem(

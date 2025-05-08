@@ -51,12 +51,14 @@ fun CommunityScreen(navController: NavHostController) {
     var currentStep by remember { mutableStateOf(1) }
 
     var visiblePosts by remember { mutableStateOf(listOf<CommunityDocument>()) }
+    var originalPosts by remember { mutableStateOf(listOf<CommunityDocument>()) } // Lưu danh sách gốc
     var lastDocument by remember { mutableStateOf<com.google.firebase.firestore.DocumentSnapshot?>(null) }
     var page by remember { mutableStateOf(0) }
     val postsPerPage = 9
     val additionalPosts = 6
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val gridState = rememberLazyGridState()
     val selectedItem by remember { mutableStateOf("community") }
@@ -129,6 +131,7 @@ fun CommunityScreen(navController: NavHostController) {
                     }
                     Log.d("CommunityScreen", "Tải được ${fetchedPosts.size} bài đăng: $fetchedPosts")
                     visiblePosts = fetchedPosts
+                    originalPosts = fetchedPosts // Lưu danh sách gốc
                     lastDocument = documents.documents.lastOrNull()
                 }
                 isLoading = false
@@ -138,6 +141,18 @@ fun CommunityScreen(navController: NavHostController) {
                 errorMessage = "Lỗi khi tải dữ liệu: ${exception.message}"
                 isLoading = false
             }
+    }
+
+    // Hàm tìm kiếm bài đăng theo tiêu đề
+    fun searchPosts(query: String) {
+        searchQuery = query
+        if (query.isBlank()) {
+            visiblePosts = originalPosts // Khôi phục danh sách gốc nếu từ khóa rỗng
+        } else {
+            visiblePosts = originalPosts.filter {
+                it.title.lowercase().contains(query.lowercase())
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -183,14 +198,34 @@ fun CommunityScreen(navController: NavHostController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 text = "Cộng đồng",
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                modifier = Modifier.weight(1f)
+                                color = Color.Black
+                            )
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { newQuery ->
+                                    searchQuery = newQuery
+                                    searchPosts(newQuery)
+                                },
+                                label = { Text("Tìm theo tiêu đề") },
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(48.dp),
+                                singleLine = true,
+                                colors = TextFieldDefaults.textFieldColors(
+                                    containerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Black,
+                                    unfocusedIndicatorColor = Color.Black,
+                                    disabledIndicatorColor = Color.Transparent,
+                                    focusedLabelColor = Color.Black,
+                                    unfocusedLabelColor = Color.Black
+                                )
                             )
                             if (authState.userRole?.lowercase() == "mentor") {
                                 IconButton(
@@ -267,6 +302,7 @@ fun CommunityScreen(navController: NavHostController) {
                                                                 post.copy(id = doc.id)
                                                             }
                                                             visiblePosts = fetchedPosts
+                                                            originalPosts = fetchedPosts // Cập nhật danh sách gốc
                                                             lastDocument = documents.documents.lastOrNull()
                                                             page = 0
                                                             scope.launch {
@@ -312,6 +348,7 @@ fun CommunityScreen(navController: NavHostController) {
                                                                     post.copy(id = doc.id)
                                                                 }
                                                                 visiblePosts = visiblePosts + newPosts
+                                                                originalPosts = originalPosts + newPosts // Cập nhật danh sách gốc
                                                                 lastDocument = documents.documents.lastOrNull()
                                                                 page++
                                                             }
@@ -724,7 +761,7 @@ fun CommunityScreen(navController: NavHostController) {
 
                                         Button(
                                             onClick = {
-                                                if (imageUrl != null ) {
+                                                if (imageUrl != null) {
                                                     val newPost = CommunityDocument(
                                                         id = db.collection("community_documents").document().id,
                                                         title = title,
