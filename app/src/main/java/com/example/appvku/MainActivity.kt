@@ -29,6 +29,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.example.appvku.ui.screen.SignUpScreen
 import com.example.appvku.AuthManager
 import com.cloudinary.android.MediaManager
+import com.example.appvku.ui.screen.AboutUsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,6 +93,9 @@ class MainActivity : ComponentActivity() {
                         composable("register_mentor") { RegisterMentorScreen(navController) }
                         composable("pending_approval") { PendingApprovalScreen(navController) }
                         composable("signup_screen") { SignUpScreen(navController) }
+
+                        composable("about_us") { AboutUsScreen(navController) }
+
                         composable(
                             "edit_mentor/{mentorId}/{name}/{expertise}/{organization}/{achievements}/{referralSource}/{image}",
                             arguments = listOf(
