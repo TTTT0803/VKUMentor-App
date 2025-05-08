@@ -55,7 +55,7 @@ fun UpdateProfileScreen(navController: NavHostController) {
                     if (documents.isEmpty()) {
                         Log.w("UpdateProfileScreen", "Không tìm thấy tài liệu cho userId: $uid trong mentor_info")
                         mentorInfo = MentorInfo(userId = uid)
-                        errorMessage = "Tài liệu không tồn tại, sẽ tạo mới khi cập nhật"
+                        errorMessage = "Đăng ký làm Mentor để được cập nhật hồ sơ"
                     } else {
                         val document = documents.documents.first()
                         mentorInfo = document.toObject(MentorInfo::class.java)?.copy(id = document.id) ?: MentorInfo(userId = uid)
