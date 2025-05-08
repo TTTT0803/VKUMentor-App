@@ -109,4 +109,6 @@ dependencies {
     implementation("androidx.navigation:navigation-fragment:2.7.7")
     implementation("androidx.navigation:navigation-ui:2.7.7")
     kapt("com.google.dagger:hilt-android-compiler:2.48")
+
+    implementation ("androidx.compose.animation:animation:1.6.8")
 }
