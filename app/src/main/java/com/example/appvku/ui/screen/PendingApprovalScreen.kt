@@ -16,6 +16,8 @@ import androidx.navigation.NavHostController
 import com.example.appvku.model.MentorInfo
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +71,7 @@ fun PendingApprovalScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Nút Đăng xuất thứ nhất (mới thêm)
+            // Nút Đăng xuất thứ nhất
             Button(
                 onClick = {
                     FirebaseAuth.getInstance().signOut()
@@ -121,12 +123,22 @@ fun PendingApprovalScreen(navController: NavHostController) {
                         MentorApprovalCard(
                             mentor = mentor,
                             onApprove = {
-                                db.collection("mentor_info")
-                                    .document(mentor.id ?: "")
-                                    .update("status", "approved")
-                                    .addOnSuccessListener {
-                                        pendingMentors = pendingMentors.filter { it.id != mentor.id }
-                                    }
+                                val userId = mentor.userId
+                                if (userId != null) {
+                                    // Cập nhật status trong mentor_info
+                                    db.collection("mentor_info")
+                                        .document(mentor.id ?: "")
+                                        .update("status", "approved")
+                                        .addOnSuccessListener {
+                                            // Cập nhật idRole trong users thành role_mentor
+                                            db.collection("users")
+                                                .document(userId)
+                                                .update("idRole", "role_mentor")
+                                                .addOnSuccessListener {
+                                                    pendingMentors = pendingMentors.filter { it.id != mentor.id }
+                                                }
+                                        }
+                                }
                             },
                             onReject = {
                                 db.collection("mentor_info")
@@ -137,7 +149,17 @@ fun PendingApprovalScreen(navController: NavHostController) {
                                     }
                             },
                             onEdit = {
-                                navController.navigate("edit_mentor/${mentor.id}/${mentor.name}/${mentor.expertise}/${mentor.organization}/${mentor.achievements}/${mentor.referralSource}/${mentor.image}")
+                                val encodedName = URLEncoder.encode(mentor.name ?: "", StandardCharsets.UTF_8.toString())
+                                val encodedExpertise = URLEncoder.encode(mentor.expertise ?: "", StandardCharsets.UTF_8.toString())
+                                val encodedOrganization = URLEncoder.encode(mentor.organization ?: "", StandardCharsets.UTF_8.toString())
+                                val encodedAchievements = URLEncoder.encode(mentor.achievements ?: "", StandardCharsets.UTF_8.toString())
+                                val encodedReferralSource = URLEncoder.encode(mentor.referralSource ?: "", StandardCharsets.UTF_8.toString())
+                                val encodedImage = URLEncoder.encode(mentor.image ?: "", StandardCharsets.UTF_8.toString())
+
+                                if (mentor.id != null) {
+                                    val route = "edit_mentor/${mentor.id}/$encodedName/$encodedExpertise/$encodedOrganization/$encodedAchievements/$encodedReferralSource/$encodedImage"
+                                    navController.navigate(route)
+                                }
                             },
                             onDelete = {
                                 db.collection("mentor_info")
@@ -154,7 +176,7 @@ fun PendingApprovalScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Nút Đăng xuất thứ hai (nút cũ)
+            // Nút Đăng xuất thứ hai
             Button(
                 onClick = {
                     FirebaseAuth.getInstance().signOut()

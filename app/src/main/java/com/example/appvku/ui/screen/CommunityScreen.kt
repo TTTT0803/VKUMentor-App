@@ -9,9 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,9 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.example.appvku.LocalAuthState
 import com.example.appvku.R
 import com.example.appvku.model.CommunityDocument
-import com.google.firebase.auth.FirebaseAuth
+import com.example.appvku.ui.component.AppBottomBar
+import com.example.appvku.ui.component.AppTopBar
+import com.example.appvku.ui.component.DrawerContent
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.launch
@@ -39,7 +39,6 @@ import java.util.Locale
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
-import com.example.appvku.ui.component.DrawerContent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,11 +46,10 @@ fun CommunityScreen(navController: NavHostController) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
-    val snackbarHostState = remember { SnackbarHostState() } // State cho Snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
     var showBottomSheet by remember { mutableStateOf(false) }
     var currentStep by remember { mutableStateOf(1) }
 
-    // State để quản lý danh sách bài đăng hiển thị
     var visiblePosts by remember { mutableStateOf(listOf<CommunityDocument>()) }
     var lastDocument by remember { mutableStateOf<com.google.firebase.firestore.DocumentSnapshot?>(null) }
     var page by remember { mutableStateOf(0) }
@@ -60,13 +58,9 @@ fun CommunityScreen(navController: NavHostController) {
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // State để theo dõi vị trí cuộn
     val gridState = rememberLazyGridState()
-
-    // State để theo dõi mục được chọn trong NavigationBar
     val selectedItem by remember { mutableStateOf("community") }
 
-    // State cho form thêm tài liệu
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     var fileUri by remember { mutableStateOf<Uri?>(null) }
@@ -74,47 +68,9 @@ fun CommunityScreen(navController: NavHostController) {
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var imageUrl by remember { mutableStateOf<String?>(null) }
 
-    // Kiểm tra vai trò người dùng
-    var userRole by remember { mutableStateOf("") }
-    var isRoleLoading by remember { mutableStateOf(true) } // Trạng thái tải role
-    val auth = FirebaseAuth.getInstance()
+    val authState = LocalAuthState.current
     val db = FirebaseFirestore.getInstance()
-    val currentUser = auth.currentUser
 
-    LaunchedEffect(currentUser) {
-        if (currentUser != null) {
-            db.collection("users").document(currentUser.uid).get()
-                .addOnSuccessListener { document ->
-                    val idRole = document.getString("idRole") ?: ""
-                    if (idRole.isNotEmpty()) {
-                        db.collection("roles").document(idRole).get()
-                            .addOnSuccessListener { roleDoc ->
-                                userRole = roleDoc.getString("roleName") ?: ""
-                                Log.d("CommunityScreen", "Vai trò người dùng: $userRole")
-                                isRoleLoading = false
-                            }
-                            .addOnFailureListener { exception ->
-                                Log.e("CommunityScreen", "Lỗi khi lấy vai trò: ${exception.message}", exception)
-                                errorMessage = "Lỗi khi lấy vai trò: ${exception.message}"
-                                isRoleLoading = false
-                            }
-                    } else {
-                        Log.w("CommunityScreen", "idRole trống cho người dùng ${currentUser.uid}")
-                        userRole = "Unknown"
-                        isRoleLoading = false
-                    }
-                }
-                .addOnFailureListener { exception ->
-                    Log.e("CommunityScreen", "Lỗi khi lấy thông tin người dùng: ${exception.message}", exception)
-                    errorMessage = "Lỗi khi tải thông tin: ${exception.message}"
-                    isRoleLoading = false
-                }
-        } else {
-            isRoleLoading = false
-        }
-    }
-
-    // Launcher để chọn file
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -122,7 +78,6 @@ fun CommunityScreen(navController: NavHostController) {
         fileName = uri?.lastPathSegment ?: "Chưa có file được đính kèm"
     }
 
-    // Launcher để chọn hình ảnh
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -139,12 +94,13 @@ fun CommunityScreen(navController: NavHostController) {
                     }
 
                     override fun onSuccess(requestId: String, resultData: Map<*, *>) {
-                        imageUrl = resultData["url"].toString()
+                        imageUrl = resultData["secure_url"]?.toString() ?: resultData["url"]?.toString()
                         Log.d("CommunityScreen", "Upload thành công, URL: $imageUrl")
                     }
 
                     override fun onError(requestId: String, error: ErrorInfo) {
                         Log.e("CommunityScreen", "Lỗi khi upload: ${error.description}")
+                        imageUrl = null
                     }
 
                     override fun onReschedule(requestId: String, error: ErrorInfo) {
@@ -155,7 +111,6 @@ fun CommunityScreen(navController: NavHostController) {
         }
     }
 
-    // Tải dữ liệu từ Firestore
     fun loadPosts() {
         isLoading = true
         errorMessage = null
@@ -196,183 +151,21 @@ fun CommunityScreen(navController: NavHostController) {
         }
     ) {
         Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }, // Thêm SnackbarHost
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFE5F0FF))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "VKU Mentor",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .shadow(4.dp, RoundedCornerShape(8.dp))
-                            .background(Color.White, RoundedCornerShape(8.dp))
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        IconButton(
-                            onClick = {
-                                if (isRoleLoading) {
-                                    Log.d("CommunityScreen", "Role chưa tải xong, đang đợi...")
-                                } else {
-                                    Log.d("CommunityScreen", "Role hiện tại: $userRole")
-                                    if (userRole?.lowercase() == "mentor") {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                message = "Bạn đã là mentor!",
-                                                actionLabel = "OK",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                        }
-                                    } else {
-                                        navController.navigate("register_mentor")
-                                    }
-                                }
-                            },
-                            enabled = !isRoleLoading
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.register),
-                                contentDescription = "Đăng ký Mentor",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("search_mentor") }) {
-                            Icon(Icons.Default.Search, contentDescription = "Tìm kiếm Mentor")
-                        }
-                        IconButton(onClick = { navController.navigate("community") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.group),
-                                contentDescription = "Cộng đồng",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("collaboration") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.hoptac),
-                                contentDescription = "Hợp tác",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("rating") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.rating),
-                                contentDescription = "Đánh giá",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("about_us") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.vechungto),
-                                contentDescription = "Về chúng tớ",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
+                AppTopBar(
+                    navController = navController,
+                    drawerState = drawerState,
+                    userRole = authState.userRole,
+                    isRoleLoading = authState.isRoleLoading,
+                    snackbarHostState = snackbarHostState
+                )
             },
             bottomBar = {
-                NavigationBar(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFE5F0FF))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .shadow(4.dp, RoundedCornerShape(8.dp))
-                        .background(Color.White, RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                ) {
-                    NavigationBarItem(
-                        icon = {
-                            Image(
-                                painter = painterResource(id = R.drawable.trangchu),
-                                contentDescription = "Trang chủ",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Trang chủ",
-                                fontSize = 12.sp,
-                                color = if (selectedItem == "home") Color.Black else Color.Gray
-                            )
-                        },
-                        selected = selectedItem == "home",
-                        onClick = {
-                            navController.navigate("home") {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-
-                    NavigationBarItem(
-                        icon = {
-                            Image(
-                                painter = painterResource(id = R.drawable.thongbao),
-                                contentDescription = "Thông báo",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Thông báo",
-                                fontSize = 12.sp,
-                                color = if (selectedItem == "notifications") Color.Black else Color.Gray
-                            )
-                        },
-                        selected = selectedItem == "notifications",
-                        onClick = {
-                            navController.navigate("notifications") {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-
-                    NavigationBarItem(
-                        icon = {
-                            Image(
-                                painter = painterResource(id = R.drawable.taikhoan),
-                                contentDescription = "Tài khoản",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Tài khoản",
-                                fontSize = 12.sp,
-                                color = if (selectedItem == "profile") Color.Black else Color.Gray
-                            )
-                        },
-                        selected = selectedItem == "profile",
-                        onClick = {
-                            navController.navigate("profile") {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-                }
+                AppBottomBar(
+                    navController = navController,
+                    selectedItem = selectedItem
+                )
             },
             content = { padding ->
                 Box(
@@ -399,7 +192,7 @@ fun CommunityScreen(navController: NavHostController) {
                                 color = Color.Black,
                                 modifier = Modifier.weight(1f)
                             )
-                            if (userRole?.lowercase() == "mentor") { // Chuẩn hóa so sánh
+                            if (authState.userRole?.lowercase() == "mentor") {
                                 IconButton(
                                     onClick = {
                                         Log.d("CommunityScreen", "Nút thêm được nhấn, showBottomSheet = true")
@@ -764,10 +557,10 @@ fun CommunityScreen(navController: NavHostController) {
                                             .padding(top = 16.dp, bottom = 8.dp)
                                     )
 
-                                    if (imageUri != null) {
+                                    if (imageUrl != null) {
                                         AsyncImage(
-                                            model = imageUri,
-                                            contentDescription = "Hình ảnh đã chọn",
+                                            model = imageUrl,
+                                            contentDescription = "Hình ảnh từ Cloudinary",
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(150.dp)
@@ -878,7 +671,7 @@ fun CommunityScreen(navController: NavHostController) {
                                             .padding(vertical = 4.dp)
                                     )
 
-                                    if (imageUri != null) {
+                                    if (imageUrl != null) {
                                         Text(
                                             text = "Hình ảnh:",
                                             fontSize = 14.sp,
@@ -888,8 +681,8 @@ fun CommunityScreen(navController: NavHostController) {
                                                 .padding(vertical = 4.dp)
                                         )
                                         AsyncImage(
-                                            model = imageUri,
-                                            contentDescription = "Hình ảnh đã chọn",
+                                            model = imageUrl,
+                                            contentDescription = "Hình ảnh từ Cloudinary",
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(150.dp)
@@ -931,38 +724,42 @@ fun CommunityScreen(navController: NavHostController) {
 
                                         Button(
                                             onClick = {
-                                                val db = FirebaseFirestore.getInstance()
-                                                val newPost = CommunityDocument(
-                                                    id = db.collection("community_documents").document().id,
-                                                    title = title,
-                                                    content = content,
-                                                    date = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault()).format(Date()),
-                                                    image = imageUrl.toString(),
-                                                    mentorId = auth.currentUser?.uid ?: "Unknown"
-                                                )
-
-                                                db.collection("community_documents")
-                                                    .document(newPost.id)
-                                                    .set(newPost)
-                                                    .addOnSuccessListener {
-                                                        Log.d("CommunityScreen", "Lưu bài đăng thành công, tải lại danh sách")
-                                                        showBottomSheet = false
-                                                        currentStep = 1
-                                                        title = ""
-                                                        content = ""
-                                                        fileUri = null
-                                                        fileName = ""
-                                                        imageUri = null
-                                                        imageUrl = null
-                                                        loadPosts()
-                                                    }
-                                                    .addOnFailureListener { exception ->
-                                                        Log.e("CommunityScreen", "Lỗi khi lưu bài đăng: ${exception.message}", exception)
-                                                    }
+                                                if (imageUrl != null ) {
+                                                    val newPost = CommunityDocument(
+                                                        id = db.collection("community_documents").document().id,
+                                                        title = title,
+                                                        content = content,
+                                                        date = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault()).format(Date()),
+                                                        image = imageUrl,
+                                                        mentorId = authState.currentUser?.uid ?: "Unknown"
+                                                    )
+                                                    Log.d("CommunityScreen", "Lưu bài đăng với URL: ${newPost.image}")
+                                                    db.collection("community_documents")
+                                                        .document(newPost.id)
+                                                        .set(newPost)
+                                                        .addOnSuccessListener {
+                                                            Log.d("CommunityScreen", "Lưu bài đăng thành công, URL: ${newPost.image}")
+                                                            showBottomSheet = false
+                                                            currentStep = 1
+                                                            title = ""
+                                                            content = ""
+                                                            fileUri = null
+                                                            fileName = ""
+                                                            imageUri = null
+                                                            imageUrl = null
+                                                            loadPosts()
+                                                        }
+                                                        .addOnFailureListener { exception ->
+                                                            Log.e("CommunityScreen", "Lỗi khi lưu bài đăng: ${exception.message}", exception)
+                                                        }
+                                                } else {
+                                                    Log.w("CommunityScreen", "Không thể xác nhận: imageUrl là null hoặc rỗng")
+                                                }
                                             },
                                             modifier = Modifier.width(120.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                                            shape = RoundedCornerShape(8.dp)
+                                            shape = RoundedCornerShape(8.dp),
+                                            enabled = imageUrl != null
                                         ) {
                                             Text(
                                                 "Xác nhận",
@@ -984,6 +781,25 @@ fun CommunityScreen(navController: NavHostController) {
 
 @Composable
 fun PostCard(post: CommunityDocument) {
+    var mentorName by remember { mutableStateOf<String?>(null) }
+    val db = FirebaseFirestore.getInstance()
+
+    LaunchedEffect(post.mentorId) {
+        if (post.mentorId != "Unknown") {
+            db.collection("users")
+                .document(post.mentorId)
+                .get()
+                .addOnSuccessListener { document ->
+                    mentorName = document.getString("username") ?: "Người dùng ẩn danh"
+                }
+                .addOnFailureListener {
+                    mentorName = "Người dùng ẩn danh"
+                }
+        } else {
+            mentorName = "Người dùng ẩn danh"
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1000,15 +816,17 @@ fun PostCard(post: CommunityDocument) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            Log.d("PostCard", "Hình ảnh URL từ Firestore: ${post.image}")
             AsyncImage(
-                model = post.image?.let { Uri.parse(it) } ?: R.drawable.post_image,
+                model = post.image.takeIf { !it.isNullOrEmpty() && it.startsWith("https") } ?: R.drawable.post_image,
                 contentDescription = "Post Image",
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(150.dp)
                     .clip(RoundedCornerShape(8.dp)),
                 placeholder = painterResource(id = R.drawable.post_image),
-                error = painterResource(id = R.drawable.post_image)
+                error = painterResource(id = R.drawable.post_image),
+                onError = { Log.e("PostCard", "Lỗi tải hình ảnh: ${post.image}") }
             )
 
             Text(
@@ -1045,7 +863,7 @@ fun PostCard(post: CommunityDocument) {
                     style = TextStyle(lineHeight = 12.sp)
                 )
                 Text(
-                    text = post.mentorId,
+                    text = mentorName ?: "Đang tải...",
                     fontSize = 12.sp,
                     color = Color.Gray,
                     maxLines = 1,

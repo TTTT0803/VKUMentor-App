@@ -20,6 +20,9 @@ object SampleDataInitializer {
                 // Xóa dữ liệu hiện tại trong Firestore
                 deleteAllFirestoreData()
 
+                // Tạo roles trước
+                initializeRoles()
+
                 // Tạo 14 user trong Authentication và Firestore
                 initializeUsers()
 
@@ -34,7 +37,7 @@ object SampleDataInitializer {
     }
 
     private suspend fun deleteAllFirestoreData() {
-        val collections = listOf("users", "mentor_info", "community_documents")
+        val collections = listOf("users", "mentor_info", "community_documents", "roles")
         for (collection in collections) {
             val documents = db.collection(collection).get().await()
             for (document in documents) {
@@ -42,6 +45,19 @@ object SampleDataInitializer {
             }
         }
         Log.d(TAG, "Đã xóa toàn bộ dữ liệu trong Firestore")
+    }
+
+    private suspend fun initializeRoles() {
+        val roles = listOf(
+            hashMapOf("roleName" to "admin") to "role_admin",
+            hashMapOf("roleName" to "mentee") to "role_mentee",
+            hashMapOf("roleName" to "mentor") to "role_mentor"
+        )
+
+        for ((roleData, roleId) in roles) {
+            db.collection("roles").document(roleId).set(roleData).await()
+            Log.d(TAG, "Đã tạo vai trò: $roleId với roleName: ${roleData["roleName"]}")
+        }
     }
 
     private suspend fun initializeUsers() {
@@ -61,11 +77,12 @@ object SampleDataInitializer {
                         "uid" to user.uid,
                         "username" to "Admin $i",
                         "email" to email,
-                        "role" to "Admin",
+                        "idRole" to "role_admin",
                         "avatar" to avatarUrl,
                         "createdAt" to createdAt
                     )
                     db.collection("users").document(user.uid).set(admin).await()
+                    Log.d(TAG, "Đã tạo Admin $i: UID=${user.uid}, Email=$email")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Lỗi khi tạo Admin $i: ${e.message}")
@@ -85,11 +102,12 @@ object SampleDataInitializer {
                         "uid" to user.uid,
                         "username" to "Mentee $i",
                         "email" to email,
-                        "role" to "Mentee",
+                        "idRole" to "role_mentee",
                         "avatar" to avatarUrl,
                         "createdAt" to createdAt
                     )
                     db.collection("users").document(user.uid).set(mentee).await()
+                    Log.d(TAG, "Đã tạo Mentee $i: UID=${user.uid}, Email=$email")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Lỗi khi tạo Mentee $i: ${e.message}")
@@ -111,7 +129,7 @@ object SampleDataInitializer {
                         "uid" to user.uid,
                         "username" to "Mentor $i",
                         "email" to email,
-                        "role" to "Mentor",
+                        "idRole" to "role_mentor",
                         "avatar" to avatarUrl,
                         "createdAt" to createdAt
                     )
@@ -131,6 +149,7 @@ object SampleDataInitializer {
                         "referralSource" to "Nguồn $i"
                     )
                     db.collection("mentor_info").document(user.uid).set(mentorInfo).await()
+                    Log.d(TAG, "Đã tạo Mentor $i: UID=${user.uid}, Email=$email, Status=$status")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Lỗi khi tạo Mentor $i: ${e.message}")
@@ -167,12 +186,14 @@ object SampleDataInitializer {
 
         for (i in 1..9) {
             val postId = "post_$i"
+            val mentorIndex = (i % 9) + 1
+            val mentorId = if (mentorIndex <= 9) "mentor_$mentorIndex" else "mentor_1"
             val post = hashMapOf(
                 "title" to titles[(i - 1) % titles.size],
                 "content" to contents[(i - 1) % contents.size],
                 "date" to "2025-05-07T${String.format("%02d", i)}:00:00+07:00",
                 "image" to imageUrl,
-                "mentorId" to "mentor_${(i % 9) + 1}"
+                "mentorId" to mentorId
             )
             db.collection("community_documents").document(postId).set(post).await()
         }

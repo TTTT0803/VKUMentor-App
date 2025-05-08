@@ -5,6 +5,6 @@ data class CommunityDocument(
     val title: String = "",
     val content: String = "",
     val date: String = "",
-    val image: String = "",
+    val image:  String? = null,
     val mentorId: String = ""
 )

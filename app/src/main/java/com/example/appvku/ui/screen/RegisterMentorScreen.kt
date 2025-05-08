@@ -21,13 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
-import com.example.appvku.R
 import com.example.appvku.model.MentorInfo
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.example.appvku.AuthManager
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
@@ -38,33 +35,16 @@ fun RegisterMentorScreen(navController: NavHostController) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
-    var achievements by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var expertise by remember { mutableStateOf("") }
     var organization by remember { mutableStateOf("") }
+    var achievements by remember { mutableStateOf("") }
     var referralSource by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var imageUrl by remember { mutableStateOf<String?>(null) }
-    var username by remember { mutableStateOf("") }
+    var imageUrl by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Lấy username từ Firestore
-    LaunchedEffect(Unit) {
-        val currentUser = auth.currentUser
-        if (currentUser != null) {
-            db.collection("users").document(currentUser.uid)
-                .get()
-                .addOnSuccessListener { document ->
-                    username = document.getString("username") ?: "Unknown"
-                }
-                .addOnFailureListener { e ->
-                    Log.e("RegisterMentorScreen", "Lỗi khi lấy username: ${e.message}")
-                    username = "Unknown"
-                }
-        }
-    }
-
-    // Launcher để chọn hình ảnh
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -132,9 +112,9 @@ fun RegisterMentorScreen(navController: NavHostController) {
             }
 
             OutlinedTextField(
-                value = achievements,
-                onValueChange = { achievements = it },
-                label = { Text("Thành tựu") },
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Tên") },
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = TextStyle(fontSize = 14.sp)
             )
@@ -162,6 +142,16 @@ fun RegisterMentorScreen(navController: NavHostController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
+                value = achievements,
+                onValueChange = { achievements = it },
+                label = { Text("Thành tựu") },
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = TextStyle(fontSize = 14.sp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
                 value = referralSource,
                 onValueChange = { referralSource = it },
                 label = { Text("Nguồn giới thiệu") },
@@ -171,36 +161,22 @@ fun RegisterMentorScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Hiển thị hình ảnh
-            when {
-                imageUrl != null -> {
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = "Hình ảnh từ Cloudinary",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                    )
-                }
-                imageUri != null -> {
-                    Image(
-                        painter = rememberAsyncImagePainter(imageUri),
-                        contentDescription = "Hình ảnh đã chọn",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                    )
-                }
-                else -> {
-                    Text(
-                        text = "Chưa có hình ảnh được chọn",
-                        fontSize = 14.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
+            if (imageUri != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(imageUri),
+                    contentDescription = "Hình ảnh đã chọn",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            } else {
+                Text(
+                    text = "Chưa có hình ảnh được chọn",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
             }
 
             Button(
@@ -224,62 +200,50 @@ fun RegisterMentorScreen(navController: NavHostController) {
 
             Button(
                 onClick = {
-                    if (imageUrl == null) {
-                        errorMessage = "Vui lòng chọn và upload hình ảnh trước khi đăng ký."
-                        return@Button
-                    }
-                    val currentUser = auth.currentUser
-                    if (currentUser != null && achievements.isNotBlank() && expertise.isNotBlank() && organization.isNotBlank()) {
+                    if (name.isNotEmpty() && expertise.isNotEmpty() && organization.isNotEmpty() &&
+                        achievements.isNotEmpty() && referralSource.isNotEmpty() && imageUrl.isNotEmpty()
+                    ) {
                         isLoading = true
-                        Log.d("RegisterMentorScreen", "Chuẩn bị lưu dữ liệu vào Firestore với imageUrl: $imageUrl")
-                        db.collection("users")
-                            .document(currentUser.uid)
-                            .update("role", "Mentor")
-                            .addOnSuccessListener {
-                                val mentorInfo = MentorInfo(
-                                    id = currentUser.uid,
-                                    achievements = achievements,
-                                    expertise = expertise,
-                                    organization = organization,
-                                    referralSource = referralSource,
-                                    status = "pending",
-                                    image = imageUrl,
-                                    userId = currentUser.uid,
-                                    name = username,
-                                    suggestionsQuestions = null
-                                )
-                                db.collection("mentor_info")
-                                    .document(currentUser.uid)
-                                    .set(mentorInfo)
-                                    .addOnSuccessListener {
-                                        Toast.makeText(context, "Đăng ký mentor thành công! Vui lòng chờ admin duyệt.", Toast.LENGTH_SHORT).show()
-                                        AuthManager.fetchUserRole(currentUser.uid) { role ->
-                                            if (role == "admin") {
-                                                navController.navigate("pending_approval") {
-                                                    popUpTo(navController.graph.startDestinationId)
-                                                    launchSingleTop = true
-                                                }
-                                            } else {
-                                                navController.navigate("home") {
-                                                    popUpTo(navController.graph.startDestinationId)
-                                                    launchSingleTop = true
-                                                }
-                                            }
+                        val user = auth.currentUser
+                        if (user != null) {
+                            // Tạo tài liệu trong mentor_info
+                            val mentorInfo = MentorInfo(
+                                id = null, // Sẽ được tự động gán bởi Firestore
+                                userId = user.uid,
+                                name = name,
+                                expertise = expertise,
+                                organization = organization,
+                                achievements = achievements,
+                                referralSource = referralSource,
+                                image = imageUrl,
+                                status = "pending",
+                                suggestionsQuestions = null
+                            )
+
+                            db.collection("mentor_info")
+                                .add(mentorInfo)
+                                .addOnSuccessListener { documentReference ->
+                                    // Cập nhật ID của tài liệu vừa tạo
+                                    documentReference.update("id", documentReference.id)
+                                    Toast.makeText(context, "Đăng ký Mentor thành công! Đang chờ phê duyệt.", Toast.LENGTH_SHORT).show()
+                                    navController.navigate("home") {
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            inclusive = false
                                         }
-                                        isLoading = false
+                                        launchSingleTop = true
                                     }
-                                    .addOnFailureListener { e ->
-                                        errorMessage = "Lỗi khi lưu thông tin mentor: ${e.message}"
-                                        isLoading = false
-                                    }
-                            }
-                            .addOnFailureListener { e ->
-                                errorMessage = "Lỗi khi cập nhật vai trò: ${e.message}"
-                                isLoading = false
-                            }
+                                    isLoading = false
+                                }
+                                .addOnFailureListener { e ->
+                                    errorMessage = "Lỗi khi đăng ký Mentor: ${e.message}"
+                                    isLoading = false
+                                }
+                        } else {
+                            Toast.makeText(context, "Vui lòng đăng nhập để đăng ký Mentor!", Toast.LENGTH_SHORT).show()
+                            isLoading = false
+                        }
                     } else {
-                        errorMessage = "Vui lòng điền đầy đủ thông tin và chọn hình ảnh."
-                        isLoading = false
+                        Toast.makeText(context, "Vui lòng điền đầy đủ thông tin và chọn hình ảnh!", Toast.LENGTH_SHORT).show()
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
@@ -287,7 +251,7 @@ fun RegisterMentorScreen(navController: NavHostController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                enabled = !isLoading && imageUrl != null
+                enabled = !isLoading
             ) {
                 Text(
                     "ĐĂNG KÝ",

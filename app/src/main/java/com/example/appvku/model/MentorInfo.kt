@@ -1,7 +1,7 @@
 package com.example.appvku.model
 
 data class MentorInfo(
-    val id: String = "",
+    val id: String? = null,
     val name: String = "",
     val expertise: String = "",
     val achievements: String = "",

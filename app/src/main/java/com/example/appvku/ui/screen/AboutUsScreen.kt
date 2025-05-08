@@ -19,103 +19,140 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import com.example.appvku.LocalAuthState
 import com.example.appvku.R
+import com.example.appvku.ui.component.AppBottomBar
+import com.example.appvku.ui.component.AppTopBar
+import com.example.appvku.ui.component.DrawerContent
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutUsScreen(navController: NavController) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Banner image with gradient overlay
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.about_us_banner2),
-                contentDescription = "About Us Banner",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp)
-                    .clip(RoundedCornerShape(16.dp)),
-                contentScale = ContentScale.Crop
-            )
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.9f)),
-                            startY = 100f
-                        )
-                    )
-            )
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2196F3)),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .offset(y = 30.dp)
-                    .padding(horizontal = 24.dp)
-            ) {
-                Text(
-                    text = "About Us",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .padding(horizontal = 24.dp, vertical = 8.dp)
-                )
-            }
+fun AboutUsScreen(navController: NavHostController) {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val authState = LocalAuthState.current
+    val selectedItem by remember { mutableStateOf("about_us") }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            DrawerContent(navController) { scope.launch { drawerState.close() } }
         }
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                AppTopBar(
+                    navController = navController,
+                    drawerState = drawerState,
+                    userRole = authState.userRole,
+                    isRoleLoading = authState.isRoleLoading,
+                    snackbarHostState = snackbarHostState
+                )
+            },
+            bottomBar = {
+                AppBottomBar(
+                    navController = navController,
+                    selectedItem = selectedItem
+                )
+            },
+            content = { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White)
+                        .verticalScroll(rememberScrollState())
+                        .padding(padding)
+                        .padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.about_us_banner2),
+                            contentDescription = "About Us Banner",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.9f)),
+                                        startY = 100f
+                                    )
+                                )
+                        )
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF2196F3)),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .offset(y = 30.dp)
+                                .padding(horizontal = 24.dp)
+                        ) {
+                            Text(
+                                text = "About Us",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
 
-        Spacer(modifier = Modifier.height(50.dp))
+                    Spacer(modifier = Modifier.height(50.dp))
 
-        // App description
-        Text(
-            text = "App VKU là một ứng dụng học tập và cộng đồng được phát triển bởi sinh viên trường Đại học VKU. Ứng dụng cung cấp các tính năng như chia sẻ tài liệu, kết nối sinh viên, hỗ trợ học tập và quản lý hoạt động nhóm.",
-            fontSize = 16.sp,
-            color = Color.DarkGray,
-            textAlign = TextAlign.Justify,
-            modifier = Modifier.padding(horizontal = 8.dp)
+                    Text(
+                        text = "App VKU là một ứng dụng học tập và cộng đồng được phát triển bởi sinh viên trường Đại học VKU. Ứng dụng cung cấp các tính năng như chia sẻ tài liệu, kết nối sinh viên, hỗ trợ học tập và quản lý hoạt động nhóm.",
+                        fontSize = 16.sp,
+                        color = Color.DarkGray,
+                        textAlign = TextAlign.Justify,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "Thành viên nhóm phát triển",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.align(Alignment.Start)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    MemberCard(
+                        name = "Thanh Thảo",
+                        clazz = "23SE2",
+                        role = "Software Dev",
+                        imageRes = R.drawable.thanhthao
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    MemberCard(
+                        name = "Nguyễn Quang Kính",
+                        clazz = "23SE2",
+                        role = "Software Dev",
+                        imageRes = R.drawable.quangkinh
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
         )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Thành viên nhóm phát triển",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.Start)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Member Cards
-        MemberCard(
-            name = "Thanh Thảo",
-            clazz = "23SE2",
-            role = "Software Dev",
-            imageRes = R.drawable.thanhthao
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        MemberCard(
-            name = "Quang Kính",
-            clazz = "23SE2",
-            role = "Software Dev",
-            imageRes = R.drawable.quangkinh
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 

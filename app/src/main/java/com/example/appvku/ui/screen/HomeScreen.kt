@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,11 +25,12 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.appvku.AuthManager
+import com.example.appvku.LocalAuthState
 import com.example.appvku.R
 import com.example.appvku.model.MentorInfo
+import com.example.appvku.ui.component.AppBottomBar
+import com.example.appvku.ui.component.AppTopBar
 import com.example.appvku.ui.component.DrawerContent
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.launch
@@ -41,26 +40,9 @@ import kotlinx.coroutines.launch
 fun HomeScreen(navController: NavHostController) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val auth = FirebaseAuth.getInstance()
-    var currentRole by remember { mutableStateOf<String?>(null) }
-    var isRoleLoading by remember { mutableStateOf(true) } // Trạng thái tải role
-    val snackbarHostState = remember { SnackbarHostState() } // State cho Snackbar
+    val authState = LocalAuthState.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Lấy role của người dùng hiện tại
-    LaunchedEffect(Unit) {
-        val user = auth.currentUser
-        if (user != null) {
-            AuthManager.fetchUserRole(user.uid) { role ->
-                Log.d("HomeScreen", "Role fetched: $role")
-                currentRole = role
-                isRoleLoading = false
-            }
-        } else {
-            isRoleLoading = false
-        }
-    }
-
-    // State để quản lý danh sách mentor hiển thị
     var visibleMentors by remember { mutableStateOf(listOf<MentorInfo>()) }
     var lastDocument by remember { mutableStateOf<com.google.firebase.firestore.DocumentSnapshot?>(null) }
     var page by remember { mutableStateOf(0) }
@@ -69,13 +51,9 @@ fun HomeScreen(navController: NavHostController) {
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // State để theo dõi vị trí cuộn
     val gridState = rememberLazyGridState()
-
-    // State để theo dõi mục được chọn trong NavigationBar
     var selectedItem by remember { mutableStateOf("home") }
 
-    // Tải dữ liệu từ Firestore
     fun loadMentors() {
         isLoading = true
         errorMessage = null
@@ -148,211 +126,21 @@ fun HomeScreen(navController: NavHostController) {
         }
     ) {
         Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }, // Thêm SnackbarHost
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFE5F0FF))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "VKU Mentor",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .shadow(4.dp, RoundedCornerShape(8.dp))
-                            .background(Color.White, RoundedCornerShape(8.dp))
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        IconButton(
-                            onClick = {
-                                if (isRoleLoading) {
-                                    Log.d("HomeScreen", "Role chưa tải xong, đang đợi...")
-                                } else {
-                                    Log.d("HomeScreen", "Role hiện tại: $currentRole")
-                                    if (currentRole?.lowercase() == "mentor") {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                message = "Bạn đã là mentor!",
-                                                actionLabel = "OK",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                        }
-                                    } else {
-                                        navController.navigate("register_mentor")
-                                    }
-                                }
-                            },
-                            enabled = !isRoleLoading
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.register),
-                                contentDescription = "Đăng ký Mentor",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("search_mentor") }) {
-                            Icon(Icons.Default.Search, contentDescription = "Tìm kiếm Mentor")
-                        }
-                        IconButton(onClick = { navController.navigate("community") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.group),
-                                contentDescription = "Cộng đồng",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("collaboration") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.hoptac),
-                                contentDescription = "Hợp tác",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("rating") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.rating),
-                                contentDescription = "Đánh giá",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { navController.navigate("about_us") }) {
-                            Image(
-                                painter = painterResource(id = R.drawable.vechungto),
-                                contentDescription = "Về chúng tớ",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
+                AppTopBar(
+                    navController = navController,
+                    drawerState = drawerState,
+                    userRole = authState.userRole,
+                    isRoleLoading = authState.isRoleLoading,
+                    snackbarHostState = snackbarHostState
+                )
             },
             bottomBar = {
-                NavigationBar(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFE5F0FF))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .shadow(4.dp, RoundedCornerShape(8.dp))
-                        .background(Color.White, RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                ) {
-                    NavigationBarItem(
-                        icon = {
-                            Image(
-                                painter = painterResource(id = R.drawable.trangchu),
-                                contentDescription = "Trang chủ",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Trang chủ",
-                                fontSize = 12.sp,
-                                color = if (selectedItem == "home") Color.Black else Color.Gray
-                            )
-                        },
-                        selected = selectedItem == "home",
-                        onClick = {
-                            selectedItem = "home"
-                            navController.navigate("home") {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-
-                    NavigationBarItem(
-                        icon = {
-                            Image(
-                                painter = painterResource(id = R.drawable.thongbao),
-                                contentDescription = "Thông báo",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Thông báo",
-                                fontSize = 12.sp,
-                                color = if (selectedItem == "notifications") Color.Black else Color.Gray
-                            )
-                        },
-                        selected = selectedItem == "notifications",
-                        onClick = {
-                            selectedItem = "notifications"
-                            navController.navigate("notifications") {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-
-                    NavigationBarItem(
-                        icon = {
-                            Image(
-                                painter = painterResource(id = R.drawable.taikhoan),
-                                contentDescription = "Tài khoản",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Tài khoản",
-                                fontSize = 12.sp,
-                                color = if (selectedItem == "profile") Color.Black else Color.Gray
-                            )
-                        },
-                        selected = selectedItem == "profile",
-                        onClick = {
-                            selectedItem = "profile"
-                            navController.navigate("profile") {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.ExitToApp,
-                                contentDescription = "Đăng xuất",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Đăng xuất",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                        },
-                        selected = false,
-                        onClick = {
-                            AuthManager.signOut()
-                            navController.navigate("splash") {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-                }
+                AppBottomBar(
+                    navController = navController,
+                    selectedItem = selectedItem
+                )
             },
             content = { padding ->
                 Box(
@@ -463,8 +251,6 @@ fun HomeScreen(navController: NavHostController) {
 @Composable
 fun MentorCard(mentor: MentorInfo) {
     val context = LocalContext.current
-
-    // Thay thế http:// thành https:// trong URL
     val secureImageUrl = mentor.image?.replace("http://", "https://") ?: R.drawable.nguyenquangkinh
 
     Card(

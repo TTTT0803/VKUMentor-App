@@ -105,38 +105,50 @@ fun SignUpScreen(navController: NavHostController) {
                             .addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
                                     val user = auth.currentUser
-                                    // Tìm role Mentee trong Firestore
-                                    db.collection("roles")
-                                        .whereEqualTo("roleName", "Mentee")
-                                        .get()
-                                        .addOnSuccessListener { documents ->
-                                            if (!documents.isEmpty) {
-                                                val menteeRoleId = documents.documents[0].id
-                                                // Lưu thông tin người dùng vào Firestore với role Mentee
-                                                val newUser = User(
-                                                    uid = user?.uid ?: "",
-                                                    username = email.split("@")[0],
-                                                    password = "hashed_password", // Nên mã hóa mật khẩu trong thực tế
-                                                    email = email,
-                                                    idRole = menteeRoleId
-                                                )
-                                                db.collection("users")
-                                                    .document(user?.uid ?: "")
-                                                    .set(newUser)
-                                                    .addOnSuccessListener {
-                                                        Toast.makeText(context, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
-                                                        navController.navigate("login")
-                                                    }
-                                                    .addOnFailureListener { e ->
-                                                        Toast.makeText(context, "Lỗi khi lưu thông tin người dùng: ${e.message}", Toast.LENGTH_SHORT).show()
-                                                    }
-                                            } else {
-                                                Toast.makeText(context, "Không tìm thấy vai trò Mentee", Toast.LENGTH_SHORT).show()
+                                    if (user != null) {
+                                        // Tìm role mentee trong Firestore
+                                        db.collection("roles")
+                                            .whereEqualTo("roleName", "mentee") // Sửa thành chữ thường để khớp với dữ liệu mẫu
+                                            .get()
+                                            .addOnSuccessListener { documents ->
+                                                if (!documents.isEmpty) {
+                                                    val menteeRoleId = documents.documents[0].id
+                                                    // Lưu thông tin người dùng vào Firestore với role mentee
+                                                    val newUser = hashMapOf(
+                                                        "uid" to user.uid,
+                                                        "username" to email.split("@")[0],
+                                                        "email" to email,
+                                                        "idRole" to menteeRoleId,
+                                                        "avatar" to "https://res.cloudinary.com/dhku1c1t1/image/upload/v1746449726/NQK_aq8ilm.jpg", // Khớp với dữ liệu mẫu
+                                                        "createdAt" to "2025-05-07T10:00:00+07:00" // Khớp với dữ liệu mẫu
+                                                    )
+                                                    db.collection("users")
+                                                        .document(user.uid)
+                                                        .set(newUser)
+                                                        .addOnSuccessListener {
+                                                            Toast.makeText(context, "Đăng ký thành công! Vui lòng đăng nhập.", Toast.LENGTH_SHORT).show()
+                                                            // Đăng xuất để làm mới trạng thái đăng nhập
+                                                            auth.signOut()
+                                                            navController.navigate("login") {
+                                                                popUpTo(navController.graph.startDestinationId) {
+                                                                    inclusive = true
+                                                                }
+                                                                launchSingleTop = true
+                                                            }
+                                                        }
+                                                        .addOnFailureListener { e ->
+                                                            Toast.makeText(context, "Lỗi khi lưu thông tin người dùng: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                } else {
+                                                    Toast.makeText(context, "Không tìm thấy vai trò mentee trong Firestore", Toast.LENGTH_SHORT).show()
+                                                }
                                             }
-                                        }
-                                        .addOnFailureListener { e ->
-                                            Toast.makeText(context, "Lỗi khi tìm vai trò Mentee: ${e.message}", Toast.LENGTH_SHORT).show()
-                                        }
+                                            .addOnFailureListener { e ->
+                                                Toast.makeText(context, "Lỗi khi tìm vai trò mentee: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                    } else {
+                                        Toast.makeText(context, "Không thể lấy thông tin người dùng sau khi đăng ký", Toast.LENGTH_SHORT).show()
+                                    }
                                 } else {
                                     Toast.makeText(
                                         context,
