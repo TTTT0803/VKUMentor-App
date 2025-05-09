@@ -1,11 +1,16 @@
 package com.example.appvku.ui.screen
 
+import android.app.DownloadManager
+import android.content.Context
 import android.net.Uri
+import android.os.Environment
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +57,7 @@ fun CommunityScreen(navController: NavHostController) {
     var currentStep by remember { mutableStateOf(1) }
 
     var visiblePosts by remember { mutableStateOf(listOf<CommunityDocument>()) }
-    var originalPosts by remember { mutableStateOf(listOf<CommunityDocument>()) } // Lưu danh sách gốc
+    var originalPosts by remember { mutableStateOf(listOf<CommunityDocument>()) }
     var lastDocument by remember { mutableStateOf<com.google.firebase.firestore.DocumentSnapshot?>(null) }
     var page by remember { mutableStateOf(0) }
     val postsPerPage = 9
@@ -67,17 +73,48 @@ fun CommunityScreen(navController: NavHostController) {
     var content by remember { mutableStateOf("") }
     var fileUri by remember { mutableStateOf<Uri?>(null) }
     var fileName by remember { mutableStateOf("") }
+    var fileUrl by remember { mutableStateOf<String?>(null) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var imageUrl by remember { mutableStateOf<String?>(null) }
 
     val authState = LocalAuthState.current
     val db = FirebaseFirestore.getInstance()
+    val context = LocalContext.current
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         fileUri = uri
         fileName = uri?.lastPathSegment ?: "Chưa có file được đính kèm"
+        if (uri != null) {
+            MediaManager.get().upload(uri)
+                .option("resource_type", "raw") // Specify raw for non-image files like PDF
+                .callback(object : UploadCallback {
+                    override fun onStart(requestId: String) {
+                        Log.d("CommunityScreen", "Bắt đầu upload PDF lên Cloudinary")
+                    }
+
+                    override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
+                        Log.d("CommunityScreen", "Đang upload PDF: $bytes/$totalBytes")
+                    }
+
+                    override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                        fileUrl = resultData["secure_url"]?.toString() ?: resultData["url"]?.toString()
+                        Log.d("CommunityScreen", "Upload PDF thành công, URL: $fileUrl")
+                    }
+
+                    override fun onError(requestId: String, error: ErrorInfo) {
+                        Log.e("CommunityScreen", "Lỗi khi upload PDF: ${error.description}")
+                        fileUrl = null
+                        Toast.makeText(context, "Lỗi khi upload PDF: ${error.description}", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun onReschedule(requestId: String, error: ErrorInfo) {
+                        Log.d("CommunityScreen", "Đang thử upload lại PDF: ${error.description}")
+                    }
+                })
+                .dispatch()
+        }
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -92,21 +129,22 @@ fun CommunityScreen(navController: NavHostController) {
                     }
 
                     override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
-                        Log.d("CommunityScreen", "Đang upload: $bytes/$totalBytes")
+                        Log.d("CommunityScreen", "Đang upload ảnh: $bytes/$totalBytes")
                     }
 
                     override fun onSuccess(requestId: String, resultData: Map<*, *>) {
                         imageUrl = resultData["secure_url"]?.toString() ?: resultData["url"]?.toString()
-                        Log.d("CommunityScreen", "Upload thành công, URL: $imageUrl")
+                        Log.d("CommunityScreen", "Upload ảnh thành công, URL: $imageUrl")
                     }
 
                     override fun onError(requestId: String, error: ErrorInfo) {
-                        Log.e("CommunityScreen", "Lỗi khi upload: ${error.description}")
+                        Log.e("CommunityScreen", "Lỗi khi upload ảnh: ${error.description}")
                         imageUrl = null
+                        Toast.makeText(context, "Lỗi khi upload ảnh: ${error.description}", Toast.LENGTH_SHORT).show()
                     }
 
                     override fun onReschedule(requestId: String, error: ErrorInfo) {
-                        Log.d("CommunityScreen", "Đang thử upload lại: ${error.description}")
+                        Log.d("CommunityScreen", "Đang thử upload lại ảnh: ${error.description}")
                     }
                 })
                 .dispatch()
@@ -131,7 +169,7 @@ fun CommunityScreen(navController: NavHostController) {
                     }
                     Log.d("CommunityScreen", "Tải được ${fetchedPosts.size} bài đăng: $fetchedPosts")
                     visiblePosts = fetchedPosts
-                    originalPosts = fetchedPosts // Lưu danh sách gốc
+                    originalPosts = fetchedPosts
                     lastDocument = documents.documents.lastOrNull()
                 }
                 isLoading = false
@@ -143,11 +181,10 @@ fun CommunityScreen(navController: NavHostController) {
             }
     }
 
-    // Hàm tìm kiếm bài đăng theo tiêu đề
     fun searchPosts(query: String) {
         searchQuery = query
         if (query.isBlank()) {
-            visiblePosts = originalPosts // Khôi phục danh sách gốc nếu từ khóa rỗng
+            visiblePosts = originalPosts
         } else {
             visiblePosts = originalPosts.filter {
                 it.title.lowercase().contains(query.lowercase())
@@ -277,7 +314,7 @@ fun CommunityScreen(navController: NavHostController) {
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 items(visiblePosts) { post ->
-                                    PostCard(post)
+                                    PostCard(post, context)
                                 }
 
                                 item(span = { GridItemSpan(1) }) {
@@ -302,7 +339,7 @@ fun CommunityScreen(navController: NavHostController) {
                                                                 post.copy(id = doc.id)
                                                             }
                                                             visiblePosts = fetchedPosts
-                                                            originalPosts = fetchedPosts // Cập nhật danh sách gốc
+                                                            originalPosts = fetchedPosts
                                                             lastDocument = documents.documents.lastOrNull()
                                                             page = 0
                                                             scope.launch {
@@ -348,7 +385,7 @@ fun CommunityScreen(navController: NavHostController) {
                                                                     post.copy(id = doc.id)
                                                                 }
                                                                 visiblePosts = visiblePosts + newPosts
-                                                                originalPosts = originalPosts + newPosts // Cập nhật danh sách gốc
+                                                                originalPosts = originalPosts + newPosts
                                                                 lastDocument = documents.documents.lastOrNull()
                                                                 page++
                                                             }
@@ -388,6 +425,7 @@ fun CommunityScreen(navController: NavHostController) {
                                 content = ""
                                 fileUri = null
                                 fileName = ""
+                                fileUrl = null
                                 imageUri = null
                                 imageUrl = null
                             },
@@ -507,7 +545,7 @@ fun CommunityScreen(navController: NavHostController) {
                                     OutlinedTextField(
                                         value = fileName,
                                         onValueChange = { },
-                                        label = { Text("File đính kèm") },
+                                        label = { Text("File PDF đính kèm") },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 8.dp),
@@ -516,7 +554,7 @@ fun CommunityScreen(navController: NavHostController) {
                                     )
 
                                     Button(
-                                        onClick = { filePickerLauncher.launch("*/*") },
+                                        onClick = { filePickerLauncher.launch("application/pdf") }, // Restrict to PDF files
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 8.dp),
@@ -524,7 +562,7 @@ fun CommunityScreen(navController: NavHostController) {
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
                                         Text(
-                                            "Chọn file",
+                                            "Chọn file PDF",
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
@@ -532,7 +570,7 @@ fun CommunityScreen(navController: NavHostController) {
                                     }
 
                                     Text(
-                                        text = if (fileName.isEmpty()) "Chưa có file được đính kèm" else "File: $fileName",
+                                        text = if (fileName.isEmpty()) "Chưa có file PDF được đính kèm" else "File: $fileName",
                                         fontSize = 12.sp,
                                         color = Color.Gray,
                                         modifier = Modifier
@@ -700,7 +738,7 @@ fun CommunityScreen(navController: NavHostController) {
                                     )
 
                                     Text(
-                                        text = "File: ${fileName.ifEmpty { "Không có file" }}",
+                                        text = "File PDF: ${fileName.ifEmpty { "Không có file" }}",
                                         fontSize = 14.sp,
                                         color = Color.Black,
                                         modifier = Modifier
@@ -761,42 +799,47 @@ fun CommunityScreen(navController: NavHostController) {
 
                                         Button(
                                             onClick = {
-                                                if (imageUrl != null) {
+                                                if (title.isNotEmpty() && imageUrl != null) {
                                                     val newPost = CommunityDocument(
                                                         id = db.collection("community_documents").document().id,
                                                         title = title,
                                                         content = content,
                                                         date = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.getDefault()).format(Date()),
                                                         image = imageUrl,
-                                                        mentorId = authState.currentUser?.uid ?: "Unknown"
+                                                        mentorId = authState.currentUser?.uid ?: "Unknown",
+                                                        fileUrl = fileUrl
                                                     )
-                                                    Log.d("CommunityScreen", "Lưu bài đăng với URL: ${newPost.image}")
+                                                    Log.d("CommunityScreen", "Lưu bài đăng với URL ảnh: ${newPost.image}, URL PDF: ${newPost.fileUrl}")
                                                     db.collection("community_documents")
                                                         .document(newPost.id)
                                                         .set(newPost)
                                                         .addOnSuccessListener {
-                                                            Log.d("CommunityScreen", "Lưu bài đăng thành công, URL: ${newPost.image}")
+                                                            Log.d("CommunityScreen", "Lưu bài đăng thành công")
+                                                            Toast.makeText(context, "Đăng bài thành công!", Toast.LENGTH_SHORT).show()
                                                             showBottomSheet = false
                                                             currentStep = 1
                                                             title = ""
                                                             content = ""
                                                             fileUri = null
                                                             fileName = ""
+                                                            fileUrl = null
                                                             imageUri = null
                                                             imageUrl = null
                                                             loadPosts()
                                                         }
                                                         .addOnFailureListener { exception ->
                                                             Log.e("CommunityScreen", "Lỗi khi lưu bài đăng: ${exception.message}", exception)
+                                                            Toast.makeText(context, "Lỗi khi đăng bài: ${exception.message}", Toast.LENGTH_SHORT).show()
                                                         }
                                                 } else {
-                                                    Log.w("CommunityScreen", "Không thể xác nhận: imageUrl là null hoặc rỗng")
+                                                    Log.w("CommunityScreen", "Không thể xác nhận: Thiếu tiêu đề hoặc imageUrl")
+                                                    Toast.makeText(context, "Vui lòng nhập tiêu đề và chọn hình ảnh!", Toast.LENGTH_SHORT).show()
                                                 }
                                             },
                                             modifier = Modifier.width(120.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                                             shape = RoundedCornerShape(8.dp),
-                                            enabled = imageUrl != null
+                                            enabled = title.isNotEmpty() && imageUrl != null
                                         ) {
                                             Text(
                                                 "Xác nhận",
@@ -817,7 +860,7 @@ fun CommunityScreen(navController: NavHostController) {
 }
 
 @Composable
-fun PostCard(post: CommunityDocument) {
+fun PostCard(post: CommunityDocument, context: Context) {
     var mentorName by remember { mutableStateOf<String?>(null) }
     val db = FirebaseFirestore.getInstance()
 
@@ -842,7 +885,29 @@ fun PostCard(post: CommunityDocument) {
             .fillMaxWidth()
             .height(300.dp)
             .shadow(8.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp)),
+            .clip(RoundedCornerShape(12.dp))
+            .clickable {
+                if (post.fileUrl != null) {
+                    try {
+                        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        val uri = Uri.parse(post.fileUrl)
+                        val request = DownloadManager.Request(uri).apply {
+                            setTitle("${post.title}.pdf")
+                            setDescription("Downloading PDF from VKU Alumnimentor")
+                            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "${post.title}.pdf")
+                            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                            setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+                        }
+                        downloadManager.enqueue(request)
+                        Toast.makeText(context, "Đang tải ${post.title}.pdf...", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Log.e("PostCard", "Lỗi khi tải PDF: ${e.message}", e)
+                        Toast.makeText(context, "Lỗi khi tải PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(context, "Bài đăng này không có file PDF!", Toast.LENGTH_SHORT).show()
+                }
+            },
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
@@ -906,6 +971,17 @@ fun PostCard(post: CommunityDocument) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = TextStyle(lineHeight = 12.sp)
+                )
+            }
+
+            if (post.fileUrl != null) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_dowload), // Ensure you have a download icon in res/drawable
+                    contentDescription = "Tải PDF",
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.End)
                 )
             }
         }

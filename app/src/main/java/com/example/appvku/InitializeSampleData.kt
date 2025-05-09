@@ -43,6 +43,7 @@ object SampleDataInitializer {
             for (document in documents) {
                 db.collection(collection).document(document.id).delete().await()
             }
+            Log.d(TAG, "Đã xóa dữ liệu trong collection: $collection")
         }
         Log.d(TAG, "Đã xóa toàn bộ dữ liệu trong Firestore")
     }
@@ -67,8 +68,8 @@ object SampleDataInitializer {
         // Tạo 2 Admin
         for (i in 1..2) {
             val adminId = "admin_$i"
-            val email = "admin$i@example.com"
-            val password = "AdminPass$i"
+            val email = "admin$i@gmail.com"
+            val password = "123456"
             try {
                 val authResult = auth.createUserWithEmailAndPassword(email, password).await()
                 val user = authResult.user
@@ -92,8 +93,8 @@ object SampleDataInitializer {
         // Tạo 3 Mentee
         for (i in 1..3) {
             val menteeId = "mentee_$i"
-            val email = "mentee$i@example.com"
-            val password = "MenteePass$i"
+            val email = "mentee$i@gmail.com"
+            val password = "123456"
             try {
                 val authResult = auth.createUserWithEmailAndPassword(email, password).await()
                 val user = authResult.user
@@ -117,8 +118,8 @@ object SampleDataInitializer {
         // Tạo 9 Mentor (6 approved, 3 pending)
         for (i in 1..9) {
             val mentorId = "mentor_$i"
-            val email = "mentor$i@example.com"
-            val password = "MentorPass$i"
+            val email = "mentor$i@gmail.com"
+            val password = "123456"
             try {
                 val authResult = auth.createUserWithEmailAndPassword(email, password).await()
                 val user = authResult.user
@@ -156,11 +157,25 @@ object SampleDataInitializer {
             }
         }
 
-        Log.d(TAG, "Đã khởi tạo users: 2 Admin, 3 Mentee, 9 Mentor (6 approved, 3 pending)")
+        // Verify users collection
+        val userCount = db.collection("users").get().await().size()
+        Log.d(TAG, "Đã khởi tạo $userCount users: 2 Admin, 3 Mentee, 9 Mentor (6 approved, 3 pending)")
     }
 
     private suspend fun initializeCommunityDocuments() {
         val imageUrl = "https://res.cloudinary.com/dqs4tuaru/image/upload/v1746598543/reactjs_jshk0a.jpg"
+        // Sample Cloudinary PDF URLs (replace with actual URLs if available)
+        val fileUrls = listOf(
+            "https://res.cloudinary.com/demo/raw/upload/v1698765432/sample_pdf_1.pdf",
+            "https://res.cloudinary.com/demo/raw/upload/v1698765432/sample_pdf_2.pdf",
+            "https://res.cloudinary.com/demo/raw/upload/v1698765432/sample_pdf_3.pdf",
+            "https://res.cloudinary.com/demo/raw/upload/v1698765432/sample_pdf_4.pdf",
+            "https://res.cloudinary.com/demo/raw/upload/v1698765432/sample_pdf_5.pdf",
+            "https://res.cloudinary.com/demo/raw/upload/v1698765432/sample_pdf_6.pdf",
+            "https://res.cloudinary.com/demo/raw/upload/v1698765432/sample_pdf_7.pdf",
+            null, // Post 8: No PDF
+            null  // Post 9: No PDF
+        )
         val titles = listOf(
             "Học lập trình Android cơ bản",
             "Hướng dẫn sử dụng Firebase",
@@ -193,11 +208,13 @@ object SampleDataInitializer {
                 "content" to contents[(i - 1) % contents.size],
                 "date" to "2025-05-07T${String.format("%02d", i)}:00:00+07:00",
                 "image" to imageUrl,
-                "mentorId" to mentorId
+                "mentorId" to mentorId,
+                "fileUrl" to fileUrls[(i - 1) % fileUrls.size]
             )
             db.collection("community_documents").document(postId).set(post).await()
+            Log.d(TAG, "Đã tạo tài liệu cộng đồng $postId với fileUrl: ${post["fileUrl"]}")
         }
 
-        Log.d(TAG, "Đã khởi tạo 9 tài liệu cộng đồng")
+        Log.d(TAG, "Đã khởi tạo 9 tài liệu cộng đồng với fileUrl")
     }
 }
