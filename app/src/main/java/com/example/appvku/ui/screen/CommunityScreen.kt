@@ -46,6 +46,135 @@ import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 
+@Composable
+fun PostCard(post: CommunityDocument, context: Context) {
+    var mentorName by remember { mutableStateOf<String?>(null) }
+    val db = FirebaseFirestore.getInstance()
+
+    LaunchedEffect(post.mentorId) {
+        if (post.mentorId != "Unknown") {
+            db.collection("users")
+                .document(post.mentorId)
+                .get()
+                .addOnSuccessListener { document ->
+                    mentorName = document.getString("username") ?: "Người dùng ẩn danh"
+                }
+                .addOnFailureListener {
+                    mentorName = "Người dùng ẩn danh"
+                }
+        } else {
+            mentorName = "Người dùng ẩn danh"
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp)
+            .shadow(8.dp, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .clickable {
+                if (post.fileUrl != null) {
+                    try {
+                        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        val uri = Uri.parse(post.fileUrl)
+                        val request = DownloadManager.Request(uri).apply {
+                            setTitle("${post.title}.pdf")
+                            setDescription("Downloading PDF from VKU Alumnimentor")
+                            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "${post.title}.pdf")
+                            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                            setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+                        }
+                        downloadManager.enqueue(request)
+                        Toast.makeText(context, "Đang tải ${post.title}.pdf...", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Log.e("PostCard", "Lỗi khi tải PDF: ${e.message}", e)
+                        Toast.makeText(context, "Lỗi khi tải PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(context, "Bài đăng này không có file PDF!", Toast.LENGTH_SHORT).show()
+                }
+            },
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Log.d("PostCard", "Hình ảnh URL từ Firestore: ${post.image}")
+            AsyncImage(
+                model = post.image.takeIf { !it.isNullOrEmpty() && it.startsWith("https") } ?: R.drawable.post_image,
+                contentDescription = "Post Image",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                placeholder = painterResource(id = R.drawable.post_image),
+                error = painterResource(id = R.drawable.post_image),
+                onError = { Log.e("PostCard", "Lỗi tải hình ảnh: ${post.image}") }
+            )
+
+            Text(
+                text = post.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+                style = TextStyle(lineHeight = 16.sp)
+            )
+
+            Text(
+                text = post.content ?: "Không có nội dung",
+                fontSize = 14.sp,
+                color = Color.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+                style = TextStyle(lineHeight = 14.sp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = post.date.substring(0, 10),
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(lineHeight = 12.sp)
+                )
+                Text(
+                    text = mentorName ?: "Đang tải...",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(lineHeight = 12.sp)
+                )
+            }
+
+            if (post.fileUrl != null) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_dowload), // Ensure you have a download icon in res/drawable
+                    contentDescription = "Tải PDF",
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.End)
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityScreen(navController: NavHostController) {
@@ -89,6 +218,7 @@ fun CommunityScreen(navController: NavHostController) {
         if (uri != null) {
             MediaManager.get().upload(uri)
                 .option("resource_type", "raw") // Specify raw for non-image files like PDF
+                .option("access_mode", "public") // Make the file publicly accessible
                 .callback(object : UploadCallback {
                     override fun onStart(requestId: String) {
                         Log.d("CommunityScreen", "Bắt đầu upload PDF lên Cloudinary")
@@ -856,134 +986,5 @@ fun CommunityScreen(navController: NavHostController) {
                 }
             }
         )
-    }
-}
-
-@Composable
-fun PostCard(post: CommunityDocument, context: Context) {
-    var mentorName by remember { mutableStateOf<String?>(null) }
-    val db = FirebaseFirestore.getInstance()
-
-    LaunchedEffect(post.mentorId) {
-        if (post.mentorId != "Unknown") {
-            db.collection("users")
-                .document(post.mentorId)
-                .get()
-                .addOnSuccessListener { document ->
-                    mentorName = document.getString("username") ?: "Người dùng ẩn danh"
-                }
-                .addOnFailureListener {
-                    mentorName = "Người dùng ẩn danh"
-                }
-        } else {
-            mentorName = "Người dùng ẩn danh"
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(300.dp)
-            .shadow(8.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
-            .clickable {
-                if (post.fileUrl != null) {
-                    try {
-                        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                        val uri = Uri.parse(post.fileUrl)
-                        val request = DownloadManager.Request(uri).apply {
-                            setTitle("${post.title}.pdf")
-                            setDescription("Downloading PDF from VKU Alumnimentor")
-                            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "${post.title}.pdf")
-                            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                            setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
-                        }
-                        downloadManager.enqueue(request)
-                        Toast.makeText(context, "Đang tải ${post.title}.pdf...", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Log.e("PostCard", "Lỗi khi tải PDF: ${e.message}", e)
-                        Toast.makeText(context, "Lỗi khi tải PDF: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    Toast.makeText(context, "Bài đăng này không có file PDF!", Toast.LENGTH_SHORT).show()
-                }
-            },
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Log.d("PostCard", "Hình ảnh URL từ Firestore: ${post.image}")
-            AsyncImage(
-                model = post.image.takeIf { !it.isNullOrEmpty() && it.startsWith("https") } ?: R.drawable.post_image,
-                contentDescription = "Post Image",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                placeholder = painterResource(id = R.drawable.post_image),
-                error = painterResource(id = R.drawable.post_image),
-                onError = { Log.e("PostCard", "Lỗi tải hình ảnh: ${post.image}") }
-            )
-
-            Text(
-                text = post.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-                style = TextStyle(lineHeight = 16.sp)
-            )
-
-            Text(
-                text = post.content ?: "Không có nội dung",
-                fontSize = 14.sp,
-                color = Color.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-                style = TextStyle(lineHeight = 14.sp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = post.date.substring(0, 10),
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = TextStyle(lineHeight = 12.sp)
-                )
-                Text(
-                    text = mentorName ?: "Đang tải...",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = TextStyle(lineHeight = 12.sp)
-                )
-            }
-
-            if (post.fileUrl != null) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_dowload), // Ensure you have a download icon in res/drawable
-                    contentDescription = "Tải PDF",
-                    tint = Color(0xFF4CAF50),
-                    modifier = Modifier
-                        .size(24.dp)
-                        .align(Alignment.End)
-                )
-            }
-        }
     }
 }
