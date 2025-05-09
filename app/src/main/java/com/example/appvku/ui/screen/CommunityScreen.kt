@@ -1,9 +1,11 @@
 package com.example.appvku.ui.screen
 
-import android.app.DownloadManager
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,18 +40,69 @@ import com.example.appvku.ui.component.AppTopBar
 import com.example.appvku.ui.component.DrawerContent
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+suspend fun downloadFile(context: Context, url: String, fileName: String) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+
+        if (uri != null) {
+            try {
+                // Chạy tác vụ mạng trong Dispatchers.IO
+                withContext(Dispatchers.IO) {
+                    val inputStream = java.net.URL(url).openStream()
+                    resolver.openOutputStream(uri)?.use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                contentValues.clear()
+                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+                // Hiển thị Toast trên main thread
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Tải xuống thành công: $fileName", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("CommunityScreen", "Lỗi khi tải file: ${e.message}", e)
+                resolver.delete(uri, null, null)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Lỗi khi tải file: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            Log.e("CommunityScreen", "Không thể tạo URI để lưu file")
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Không thể tải file", Toast.LENGTH_SHORT).show()
+            }
+        }
+    } else {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "Tính năng này chỉ hỗ trợ từ Android 10 trở lên", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
 
 @Composable
 fun PostCard(post: CommunityDocument, context: Context) {
     var mentorName by remember { mutableStateOf<String?>(null) }
     val db = FirebaseFirestore.getInstance()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(post.mentorId) {
         if (post.mentorId != "Unknown") {
@@ -75,21 +128,18 @@ fun PostCard(post: CommunityDocument, context: Context) {
             .clip(RoundedCornerShape(12.dp))
             .clickable {
                 if (post.fileUrl != null) {
-                    try {
-                        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                        val uri = Uri.parse(post.fileUrl)
-                        val request = DownloadManager.Request(uri).apply {
-                            setTitle("${post.title}.pdf")
-                            setDescription("Downloading PDF from VKU Alumnimentor")
-                            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "${post.title}.pdf")
-                            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                            setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Đang tải ${post.title}.pdf...", Toast.LENGTH_SHORT).show()
+                            }
+                            downloadFile(context, post.fileUrl, "${post.title}.pdf")
+                        } catch (e: Exception) {
+                            Log.e("PostCard", "Lỗi khi tải PDF: ${e.message}", e)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Lỗi khi tải PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
                         }
-                        downloadManager.enqueue(request)
-                        Toast.makeText(context, "Đang tải ${post.title}.pdf...", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Log.e("PostCard", "Lỗi khi tải PDF: ${e.message}", e)
-                        Toast.makeText(context, "Lỗi khi tải PDF: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     Toast.makeText(context, "Bài đăng này không có file PDF!", Toast.LENGTH_SHORT).show()
@@ -163,7 +213,7 @@ fun PostCard(post: CommunityDocument, context: Context) {
 
             if (post.fileUrl != null) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_dowload), // Ensure you have a download icon in res/drawable
+                    painter = painterResource(id = R.drawable.ic_dowload),
                     contentDescription = "Tải PDF",
                     tint = Color(0xFF4CAF50),
                     modifier = Modifier
@@ -217,8 +267,8 @@ fun CommunityScreen(navController: NavHostController) {
         fileName = uri?.lastPathSegment ?: "Chưa có file được đính kèm"
         if (uri != null) {
             MediaManager.get().upload(uri)
-                .option("resource_type", "raw") // Specify raw for non-image files like PDF
-                .option("access_mode", "public") // Make the file publicly accessible
+                .option("resource_type", "raw")
+                .option("access_mode", "public")
                 .callback(object : UploadCallback {
                     override fun onStart(requestId: String) {
                         Log.d("CommunityScreen", "Bắt đầu upload PDF lên Cloudinary")
@@ -684,7 +734,7 @@ fun CommunityScreen(navController: NavHostController) {
                                     )
 
                                     Button(
-                                        onClick = { filePickerLauncher.launch("application/pdf") }, // Restrict to PDF files
+                                        onClick = { filePickerLauncher.launch("application/pdf") },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 8.dp),
