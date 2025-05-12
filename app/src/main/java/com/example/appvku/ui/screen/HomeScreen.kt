@@ -44,7 +44,7 @@ fun HomeScreen(navController: NavHostController) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     var visibleMentors by remember { mutableStateOf(listOf<MentorInfo>()) }
-    var originalMentors by remember { mutableStateOf(listOf<MentorInfo>()) } // Lưu danh sách gốc
+    var originalMentors by remember { mutableStateOf(listOf<MentorInfo>()) }
     var lastDocument by remember { mutableStateOf<com.google.firebase.firestore.DocumentSnapshot?>(null) }
     var page by remember { mutableStateOf(0) }
     val mentorsPerPage = 9
@@ -76,7 +76,7 @@ fun HomeScreen(navController: NavHostController) {
                     }
                     Log.d("HomeScreen", "Tải được ${fetchedMentors.size} mentor: $fetchedMentors")
                     visibleMentors = fetchedMentors
-                    originalMentors = fetchedMentors // Lưu danh sách gốc
+                    originalMentors = fetchedMentors
                     lastDocument = documents.documents.lastOrNull()
                 }
                 isLoading = false
@@ -105,7 +105,7 @@ fun HomeScreen(navController: NavHostController) {
                             mentor.copy(id = doc.id)
                         }
                         visibleMentors = visibleMentors + newMentors
-                        originalMentors = originalMentors + newMentors // Cập nhật danh sách gốc
+                        originalMentors = originalMentors + newMentors
                         lastDocument = documents.documents.lastOrNull()
                     } else {
                         lastDocument = null
@@ -119,11 +119,10 @@ fun HomeScreen(navController: NavHostController) {
         }
     }
 
-    // Hàm tìm kiếm mentor theo tên
     fun searchMentors(query: String) {
         searchQuery = query
         if (query.isBlank()) {
-            visibleMentors = originalMentors // Khôi phục danh sách gốc nếu từ khóa rỗng
+            visibleMentors = originalMentors
         } else {
             visibleMentors = originalMentors.filter {
                 it.name.lowercase().contains(query.lowercase())
@@ -232,7 +231,7 @@ fun HomeScreen(navController: NavHostController) {
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 items(visibleMentors) { mentor ->
-                                    MentorCard(mentor)
+                                    MentorCard(mentor, navController)
                                 }
 
                                 item(span = { GridItemSpan(3) }) {
@@ -292,7 +291,7 @@ fun HomeScreen(navController: NavHostController) {
 }
 
 @Composable
-fun MentorCard(mentor: MentorInfo) {
+fun MentorCard(mentor: MentorInfo, navController: NavHostController) {
     val context = LocalContext.current
     val secureImageUrl = mentor.image?.replace("http://", "https://") ?: R.drawable.nguyenquangkinh
 
@@ -302,7 +301,11 @@ fun MentorCard(mentor: MentorInfo) {
             .height(220.dp)
             .shadow(8.dp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
-            .clickable { /* Xử lý khi nhấn vào Mentor */ },
+            .clickable {
+                mentor.id?.let { id ->
+                    navController.navigate("mentor_detail/$id")
+                }
+            },
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(

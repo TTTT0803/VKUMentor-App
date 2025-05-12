@@ -1,5 +1,6 @@
 package com.example.appvku
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -24,7 +25,9 @@ import com.example.appvku.ui.screen.CooperationScreen
 import com.example.appvku.ui.screen.EditMentorScreen
 import com.example.appvku.ui.screen.HomeScreen
 import com.example.appvku.ui.screen.LoginScreen
+import com.example.appvku.ui.screen.MentorDetailScreen
 import com.example.appvku.ui.screen.PendingApprovalScreen
+import com.example.appvku.ui.screen.RatingScreen
 import com.example.appvku.ui.screen.RegisterMentorScreen
 import com.example.appvku.ui.screen.SignUpScreen
 import com.example.appvku.ui.screen.SplashScreen
@@ -38,7 +41,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Khởi tạo MediaManager (Cloudinary) một lần duy nhất
+        // Khởi tạo Cloudinary
         val config = mapOf(
             "cloud_name" to "dqs4tuaru",
             "api_key" to "252599453453589",
@@ -47,12 +50,12 @@ class MainActivity : ComponentActivity() {
         try {
             MediaManager.init(this, config)
         } catch (e: IllegalStateException) {
-            // MediaManager đã được khởi tạo, bỏ qua lỗi này
+            Log.e("MainActivity", "Cloudinary đã được khởi tạo trước đó: ${e.message}")
         } catch (e: Exception) {
+            Log.e("MainActivity", "Lỗi khởi tạo Cloudinary: ${e.message}", e)
             e.printStackTrace()
         }
 
-        // Khởi tạo dữ liệu mẫu
 //        SampleDataInitializer.initializeSampleData()
 
         setContent {
@@ -79,7 +82,7 @@ fun AppNavigation() {
     LaunchedEffect(authState.currentUser, authState.isRoleLoading, authState.userRole) {
         if (authState.isRoleLoading) {
             Log.d("AppNavigation", "Đang tải vai trò, chưa điều hướng...")
-            return@LaunchedEffect // Đợi cho đến khi vai trò được tải xong
+            return@LaunchedEffect
         }
 
         Log.d("AppNavigation", "Vai trò đã tải xong: userRole = ${authState.userRole}")
@@ -176,5 +179,19 @@ fun AppNavigation() {
                 }
             }
         }
+        composable(
+            "mentor_detail/{mentorId}",
+            arguments = listOf(navArgument("mentorId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val mentorId = backStackEntry.arguments?.getString("mentorId")
+            if (mentorId != null) {
+                MentorDetailScreen(navController = navController, mentorId = mentorId)
+            } else {
+                LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+            }
+        }
+        composable("rating") { RatingScreen(navController) }
     }
 }

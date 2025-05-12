@@ -29,6 +29,9 @@ object SampleDataInitializer {
                 // Khởi tạo dữ liệu cho collection "community_documents"
                 initializeCommunityDocuments()
 
+                // Khởi tạo dữ liệu cho collection "mentor_hires"
+                initializeMentorHires()
+
                 Log.d(TAG, "Khởi tạo dữ liệu mẫu thành công")
             } catch (e: Exception) {
                 Log.e(TAG, "Lỗi khi khởi tạo dữ liệu mẫu: ${e.message}", e)
@@ -37,7 +40,13 @@ object SampleDataInitializer {
     }
 
     private suspend fun deleteAllFirestoreData() {
-        val collections = listOf("users", "mentor_info", "community_documents", "roles")
+        val collections = listOf(
+            FirestoreClient.USERS_COLLECTION,
+            FirestoreClient.MENTOR_INFO_COLLECTION,
+            FirestoreClient.COMMUNITY_DOCUMENTS_COLLECTION,
+            FirestoreClient.ROLES_COLLECTION,
+            FirestoreClient.MENTOR_HIRES_COLLECTION
+        )
         for (collection in collections) {
             val documents = db.collection(collection).get().await()
             for (document in documents) {
@@ -56,7 +65,7 @@ object SampleDataInitializer {
         )
 
         for ((roleData, roleId) in roles) {
-            db.collection("roles").document(roleId).set(roleData).await()
+            db.collection(FirestoreClient.ROLES_COLLECTION).document(roleId).set(roleData).await()
             Log.d(TAG, "Đã tạo vai trò: $roleId với roleName: ${roleData["roleName"]}")
         }
     }
@@ -66,6 +75,7 @@ object SampleDataInitializer {
         val createdAt = "2025-05-07T10:00:00+07:00"
 
         // Tạo 2 Admin
+        val adminUids = mutableListOf<String>()
         for (i in 1..2) {
             val adminId = "admin_$i"
             val email = "admin$i@gmail.com"
@@ -82,7 +92,8 @@ object SampleDataInitializer {
                         "avatar" to avatarUrl,
                         "createdAt" to createdAt
                     )
-                    db.collection("users").document(user.uid).set(admin).await()
+                    db.collection(FirestoreClient.USERS_COLLECTION).document(user.uid).set(admin).await()
+                    adminUids.add(user.uid)
                     Log.d(TAG, "Đã tạo Admin $i: UID=${user.uid}, Email=$email")
                 }
             } catch (e: Exception) {
@@ -91,6 +102,7 @@ object SampleDataInitializer {
         }
 
         // Tạo 3 Mentee
+        val menteeUids = mutableListOf<String>()
         for (i in 1..3) {
             val menteeId = "mentee_$i"
             val email = "mentee$i@gmail.com"
@@ -107,7 +119,8 @@ object SampleDataInitializer {
                         "avatar" to avatarUrl,
                         "createdAt" to createdAt
                     )
-                    db.collection("users").document(user.uid).set(mentee).await()
+                    db.collection(FirestoreClient.USERS_COLLECTION).document(user.uid).set(mentee).await()
+                    menteeUids.add(user.uid)
                     Log.d(TAG, "Đã tạo Mentee $i: UID=${user.uid}, Email=$email")
                 }
             } catch (e: Exception) {
@@ -116,6 +129,7 @@ object SampleDataInitializer {
         }
 
         // Tạo 9 Mentor (6 approved, 3 pending)
+        val mentorUids = mutableListOf<String>()
         for (i in 1..9) {
             val mentorId = "mentor_$i"
             val email = "mentor$i@gmail.com"
@@ -134,7 +148,7 @@ object SampleDataInitializer {
                         "avatar" to avatarUrl,
                         "createdAt" to createdAt
                     )
-                    db.collection("users").document(user.uid).set(mentor).await()
+                    db.collection(FirestoreClient.USERS_COLLECTION).document(user.uid).set(mentor).await()
 
                     // Lưu thông tin mentor_info
                     val mentorInfo = hashMapOf(
@@ -149,7 +163,8 @@ object SampleDataInitializer {
                         "userId" to user.uid,
                         "referralSource" to "Nguồn $i"
                     )
-                    db.collection("mentor_info").document(user.uid).set(mentorInfo).await()
+                    db.collection(FirestoreClient.MENTOR_INFO_COLLECTION).document(user.uid).set(mentorInfo).await()
+                    mentorUids.add(user.uid)
                     Log.d(TAG, "Đã tạo Mentor $i: UID=${user.uid}, Email=$email, Status=$status")
                 }
             } catch (e: Exception) {
@@ -158,7 +173,7 @@ object SampleDataInitializer {
         }
 
         // Verify users collection
-        val userCount = db.collection("users").get().await().size()
+        val userCount = db.collection(FirestoreClient.USERS_COLLECTION).get().await().size()
         Log.d(TAG, "Đã khởi tạo $userCount users: 2 Admin, 3 Mentee, 9 Mentor (6 approved, 3 pending)")
     }
 
@@ -211,10 +226,47 @@ object SampleDataInitializer {
                 "mentorId" to mentorId,
                 "fileUrl" to fileUrls[(i - 1) % fileUrls.size]
             )
-            db.collection("community_documents").document(postId).set(post).await()
+            db.collection(FirestoreClient.COMMUNITY_DOCUMENTS_COLLECTION).document(postId).set(post).await()
             Log.d(TAG, "Đã tạo tài liệu cộng đồng $postId với fileUrl: ${post["fileUrl"]}")
         }
 
         Log.d(TAG, "Đã khởi tạo 9 tài liệu cộng đồng với fileUrl")
+    }
+
+    private suspend fun initializeMentorHires() {
+        // Lấy danh sách mentee và mentor
+        val menteeDocs = db.collection(FirestoreClient.USERS_COLLECTION)
+            .whereEqualTo("idRole", "role_mentee")
+            .get()
+            .await()
+        val mentorDocs = db.collection(FirestoreClient.USERS_COLLECTION)
+            .whereEqualTo("idRole", "role_mentor")
+            .get()
+            .await()
+
+        val menteeUids = menteeDocs.map { it.getString("uid")!! }
+        val mentorUids = mentorDocs.map { it.getString("uid")!! }
+
+        // Mỗi mentee sẽ thuê 2-3 mentor ngẫu nhiên
+        menteeUids.forEachIndexed { menteeIndex, menteeUid ->
+            // Số lượng mentor mà mentee này sẽ thuê (ngẫu nhiên từ 2-3)
+            val numHires = (2..3).random()
+            // Chọn ngẫu nhiên các mentor để thuê
+            val hiredMentors = mentorUids.shuffled().take(numHires)
+
+            hiredMentors.forEachIndexed { hireIndex, mentorUid ->
+                val hireId = "hire_${menteeUid}_$mentorUid"
+                val hireData = hashMapOf(
+                    "menteeId" to menteeUid,
+                    "mentorId" to mentorUid,
+                    "hireDate" to "2025-05-07T${String.format("%02d", hireIndex + 1)}:00:00+07:00"
+                )
+                db.collection(FirestoreClient.MENTOR_HIRES_COLLECTION).document(hireId).set(hireData).await()
+                Log.d(TAG, "Mentee $menteeUid đã thuê Mentor $mentorUid")
+            }
+        }
+
+        val hireCount = db.collection(FirestoreClient.MENTOR_HIRES_COLLECTION).get().await().size()
+        Log.d(TAG, "Đã khởi tạo $hireCount thông tin thuê mentor")
     }
 }

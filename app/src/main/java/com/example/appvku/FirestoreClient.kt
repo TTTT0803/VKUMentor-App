@@ -12,7 +12,7 @@ object FirestoreClient {
     const val COMPETITIONS_COLLECTION = "competitions"
     const val MENTOR_MENTEE_LIST_COLLECTION = "mentor_mentee_list"
     const val COMPETITIONS_REGISTER_COLLECTION = "competitions_register"
-    const val MENTOR_RATING_COLLECTION = "mentor_rating"
+    const val MENTOR_RATING_COLLECTION = "mentor_ratings" // Đổi tên cho đúng với tên collection thực tế
     const val UNIVERSITY_PARTNERS_COLLECTION = "university_partners"
     const val COMMUNITY_DOCUMENTS_COLLECTION = "community_documents"
     const val COMMENTS_COLLECTION = "comments"
@@ -20,4 +20,5 @@ object FirestoreClient {
     const val ADMIN_COLLECTION = "admin"
     const val MENTEE_INFO_COLLECTION = "mentee_info"
     const val CONTACT_MESSAGES_COLLECTION = "contact_messages"
+    const val MENTOR_HIRES_COLLECTION = "mentor_hires" // Collection mới để lưu thông tin thuê mentor
 }
